@@ -1,0 +1,35 @@
+# Built application files
+*.apk
+*.aab
+*.app
+*.ipa
+*.exe
+build/
+
+# IntelliJ / Android Studio
+.idea/
+*.iml
+.gradle/
+local.properties
+
+# VS Code
+.vscode/
+
+# Flutter/Dart/Pub
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+pubspec.lock
+
+# Firebase Configuration
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
