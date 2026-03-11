@@ -1,5 +1,5 @@
 const express = require('express');
-const { collection, getDocs, doc, setDoc, deleteDoc } = require('firebase/firestore');
+const { collection, getDocs, doc, setDoc, deleteDoc, query, where } = require('firebase/firestore');
 const { db } = require('../db');
 const router = express.Router();
 

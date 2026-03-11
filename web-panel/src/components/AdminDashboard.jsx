@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
+import { getAuth, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
 import './AdminDashboard.css';
 
 function AdminDashboard() {
@@ -9,6 +10,9 @@ function AdminDashboard() {
     const [showModal, setShowModal] = useState(false);
     const [modalData, setModalData] = useState({});
     const [modalMode, setModalMode] = useState('add'); // 'add' or 'edit'
+    const [showPasswordModal, setShowPasswordModal] = useState(false);
+    const [pwdForm, setPwdForm] = useState({ current: '', newPass: '', confirm: '' });
+    const [pwdError, setPwdError] = useState('');
 
     const fetchItems = async () => {
         setLoading(true);
@@ -119,6 +123,79 @@ function AdminDashboard() {
         }
     };
 
+    // FR-02: Yoklama Listesi Yükleme (Excel/CSV)
+    const handleUploadStudentList = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        try {
+            const data = await file.arrayBuffer();
+            const workbook = XLSX.read(data);
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const rows = XLSX.utils.sheet_to_json(sheet);
+
+            let successCount = 0;
+            for (const row of rows) {
+                const userId = row['Öğrenci No'] || row['student_id'] || row['user_id'];
+                const name = row['Ad Soyad'] || row['name'] || row['ad_soyad'];
+                const email = row['E-Posta'] || row['email'] || `${userId}@ogrenci.edu.tr`;
+                if (!userId || !name) continue;
+
+                await fetch('http://localhost:5000/api/admin/users', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: String(userId), name, email, role: 'student' })
+                });
+                successCount++;
+            }
+            alert(`${successCount} öğrenci başarıyla sisteme yüklendi.`);
+            fetchItems();
+        } catch (error) {
+            console.error('Upload error:', error);
+            alert('Dosya yüklenirken hata oluştu: ' + error.message);
+        }
+        e.target.value = ''; // Reset file input
+    };
+
+    // FR-07: Admin kullanıcı şifresi sıfırlama
+    const handleResetUserPassword = async (userId, userEmail) => {
+        if (!window.confirm(`${userEmail} adresine şifre sıfırlama e-postası gönderilsin mi?`)) return;
+        try {
+            const res = await fetch('http://localhost:5000/api/auth/reset_password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: userEmail })
+            });
+            const data = await res.json();
+            alert(data.message || 'Şifre sıfırlama bağlantısı gönderildi.');
+        } catch (e) {
+            alert('Hata: ' + e.message);
+        }
+    };
+
+    // FR-06: Admin kendi şifresini değiştirme
+    const handleAdminChangePassword = async () => {
+        setPwdError('');
+        if (!pwdForm.current || !pwdForm.newPass || !pwdForm.confirm) {
+            setPwdError('Tüm alanları doldurun.');
+            return;
+        }
+        if (pwdForm.newPass.length < 8) { setPwdError('Yeni şifre en az 8 karakter olmalıdır.'); return; }
+        if (pwdForm.newPass !== pwdForm.confirm) { setPwdError('Yeni şifreler eşleşmiyor.'); return; }
+        try {
+            const authInstance = getAuth();
+            const user = authInstance.currentUser;
+            if (!user) { setPwdError('Firebase oturumu bulunamadı. Lütfen çıkış yapıp tekrar giriş yapın.'); return; }
+            const credential = EmailAuthProvider.credential(user.email, pwdForm.current);
+            await reauthenticateWithCredential(user, credential);
+            await updatePassword(user, pwdForm.newPass);
+            alert('Şifreniz başarıyla değiştirildi.');
+            setShowPasswordModal(false);
+            setPwdForm({ current: '', newPass: '', confirm: '' });
+        } catch (error) {
+            setPwdError('Şifre değiştirme hatası: ' + error.message);
+        }
+    };
+
     const handleExportExcel = async (courseCode, courseName) => {
         try {
             const res = await fetch(`http://localhost:5000/api/admin/reports/${courseCode}`);
@@ -176,8 +253,17 @@ function AdminDashboard() {
                     >
                         Duyurular (FCM)
                     </button>
+                    <button
+                        className={activeTab === 'upload' ? 'active' : ''}
+                        onClick={() => setActiveTab('upload')}
+                    >
+                        Yoklama Listesi Yükle
+                    </button>
                 </nav>
-                <button className="logout-btn" onClick={() => window.location.href = '/'}>Çıkış Yap</button>
+                <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <button className="logout-btn" style={{ margin: 0, backgroundColor: '#3b82f6' }} onClick={() => { setShowPasswordModal(true); setPwdError(''); setPwdForm({ current: '', newPass: '', confirm: '' }); }}>Şifre Değiştir</button>
+                    <button className="logout-btn" style={{ margin: 0 }} onClick={() => { localStorage.removeItem('token'); window.location.href = '/'; }}>Çıkış Yap</button>
+                </div>
             </div>
 
             <div className="admin-content">
@@ -185,13 +271,25 @@ function AdminDashboard() {
                     <h2>Yönetim Paneli - {
                         activeTab === 'students' ? 'Öğrenciler' :
                             activeTab === 'teachers' ? 'Akademisyenler' :
-                                activeTab === 'notifications' ? 'Duyurular' : 'Dersler'
+                                activeTab === 'notifications' ? 'Duyurular' :
+                                    activeTab === 'upload' ? 'Yoklama Listesi Yükle' : 'Dersler'
                     }</h2>
-                    {activeTab !== 'notifications' && <button className="add-btn" onClick={handleAdd}>+ Yeni Ekle</button>}
+                    {activeTab !== 'notifications' && activeTab !== 'upload' && <button className="add-btn" onClick={handleAdd}>+ Yeni Ekle</button>}
                 </header>
 
                 {loading ? (
                     <p>Yükleniyor...</p>
+                ) : activeTab === 'upload' ? (
+                    <div className="table-wrapper" style={{ padding: '24px' }}>
+                        <h3 style={{ marginTop: 0 }}>Yoklama Listesi Yükle (FR-02)</h3>
+                        <p style={{ color: '#64748B', fontSize: '14px', marginBottom: '16px' }}>Öğrenci listesini Excel (.xlsx) veya CSV dosyası olarak sisteme yükleyin. Dosyada <strong>"Öğrenci No"</strong>, <strong>"Ad Soyad"</strong> ve isteğe bağlı <strong>"E-Posta"</strong> sütunları bulunmalıdır.</p>
+                        <input
+                            type="file"
+                            accept=".xlsx,.xls,.csv"
+                            onChange={handleUploadStudentList}
+                            style={{ padding: '12px', border: '2px dashed #ccc', borderRadius: '8px', width: '100%', cursor: 'pointer' }}
+                        />
+                    </div>
                 ) : activeTab === 'notifications' ? (
                     <div className="table-wrapper" style={{ padding: '24px' }}>
                         <h3 style={{ marginTop: 0 }}>Yeni Duyuru (Push Notification) Gönder</h3>
@@ -247,6 +345,7 @@ function AdminDashboard() {
                                                     <td>
                                                         <button className="action-btn edit" onClick={() => handleEdit(item)}>Düzenle</button>
                                                         <button className="action-btn delete" onClick={() => handleDelete(item.user_id || item.id, false)}>Sil</button>
+                                                        <button className="action-btn" style={{ backgroundColor: '#f59e0b', color: 'white', marginLeft: '4px' }} onClick={() => handleResetUserPassword(item.user_id, item.email)}>Şifre Sıfırla</button>
                                                     </td>
                                                 </>
                                             ) : (
@@ -294,6 +393,25 @@ function AdminDashboard() {
                                 <button type="submit" className="save-btn">{modalMode === 'add' ? 'Oluştur' : 'Güncelle'}</button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Password Change Modal */}
+            {showPasswordModal && (
+                <div className="modal-overlay">
+                    <div className="modal-content">
+                        <h3>Şifre Değiştir</h3>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            <input type="password" placeholder="Mevcut Şifre" value={pwdForm.current} onChange={e => setPwdForm({ ...pwdForm, current: e.target.value })} />
+                            <input type="password" placeholder="Yeni Şifre (en az 8 karakter)" value={pwdForm.newPass} onChange={e => setPwdForm({ ...pwdForm, newPass: e.target.value })} />
+                            <input type="password" placeholder="Yeni Şifre (Tekrar)" value={pwdForm.confirm} onChange={e => setPwdForm({ ...pwdForm, confirm: e.target.value })} />
+                            {pwdError && <p style={{ color: '#ef4444', margin: 0, fontSize: '14px' }}>{pwdError}</p>}
+                            <div className="modal-actions">
+                                <button type="button" onClick={() => setShowPasswordModal(false)} className="cancel-btn">İptal</button>
+                                <button type="button" onClick={handleAdminChangePassword} className="save-btn">Güncelle</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}

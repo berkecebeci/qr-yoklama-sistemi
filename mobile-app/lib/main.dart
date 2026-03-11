@@ -297,7 +297,49 @@ class _LoginScreenState extends State<LoginScreen> {
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton(
-                    onPressed: () {},
+                    onPressed: () {
+                      final resetEmailController = TextEditingController(text: emailController.text);
+                      showDialog(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('Şifremi Unuttum'),
+                          content: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Text('Kayıtlı e-posta adresinizi girin, size bir şifre sıfırlama bağlantısı göndereceğiz.'),
+                              const SizedBox(height: 16),
+                              TextField(
+                                controller: resetEmailController,
+                                decoration: const InputDecoration(
+                                  labelText: 'E-Posta',
+                                  border: OutlineInputBorder(),
+                                ),
+                                keyboardType: TextInputType.emailAddress,
+                              ),
+                            ],
+                          ),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(context), child: const Text('İptal')),
+                            ElevatedButton(
+                              onPressed: () async {
+                                try {
+                                  await FirebaseAuth.instance.sendPasswordResetEmail(email: resetEmailController.text.trim());
+                                  Navigator.pop(context);
+                                  ScaffoldMessenger.of(this.context).showSnackBar(
+                                    const SnackBar(content: Text('Şifre sıfırlama bağlantısı e-posta adresinize gönderildi.')),
+                                  );
+                                } catch (e) {
+                                  ScaffoldMessenger.of(this.context).showSnackBar(
+                                    SnackBar(content: Text('Hata: $e')),
+                                  );
+                                }
+                              },
+                              child: const Text('Gönder'),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                     style: TextButton.styleFrom(
                       padding: EdgeInsets.zero,
                       minimumSize: const Size(50, 30),
@@ -815,18 +857,20 @@ class UpcomingClassCard extends StatelessWidget {
               child: Column(
                 children: [
                   Text(
-                    time.split(' - ')[0], 
+                    time.contains(' - ') ? time.split(' - ')[0] : time, 
                     style: TextStyle(
                       fontWeight: FontWeight.bold, 
-                      fontSize: 15,
+                      fontSize: time.contains(' - ') ? 15 : 12,
                       color: isNow ? Colors.blue.shade700 : Colors.black87
                     )
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    time.split(' - ')[1], 
-                    style: const TextStyle(fontSize: 12, color: Colors.grey)
-                  ),
+                  if (time.contains(' - ')) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      time.split(' - ')[1], 
+                      style: const TextStyle(fontSize: 12, color: Colors.grey)
+                    ),
+                  ],
                 ],
               ),
             ),

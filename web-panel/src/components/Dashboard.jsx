@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { getAuth, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
 import {
     LayoutDashboard,
     BookOpen,
@@ -485,14 +486,32 @@ const ModalOverlay = ({ type, onClose, userName, userTitle, email, onSaveProfile
             onSaveProfile(editName, editTitle);
         };
     } else if (type === 'change_password') {
+        const [currentPass, setCurrentPass] = React.useState('');
+        const [newPass, setNewPass] = React.useState('');
+        const [confirmPass, setConfirmPass] = React.useState('');
         content = (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <h3 style={{ margin: 0 }}>Şifre Değiştir</h3>
-                <input type="password" placeholder="Mevcut Şifre" style={{ padding: '10px', borderRadius: '6px', border: '1px solid #E2E8F0' }} />
-                <input type="password" placeholder="Yeni Şifre" style={{ padding: '10px', borderRadius: '6px', border: '1px solid #E2E8F0' }} />
-                <input type="password" placeholder="Yeni Şifre (Tekrar)" style={{ padding: '10px', borderRadius: '6px', border: '1px solid #E2E8F0' }} />
+                <input type="password" placeholder="Mevcut Şifre" value={currentPass} onChange={e => setCurrentPass(e.target.value)} style={{ padding: '10px', borderRadius: '6px', border: '1px solid #E2E8F0' }} />
+                <input type="password" placeholder="Yeni Şifre" value={newPass} onChange={e => setNewPass(e.target.value)} style={{ padding: '10px', borderRadius: '6px', border: '1px solid #E2E8F0' }} />
+                <input type="password" placeholder="Yeni Şifre (Tekrar)" value={confirmPass} onChange={e => setConfirmPass(e.target.value)} style={{ padding: '10px', borderRadius: '6px', border: '1px solid #E2E8F0' }} />
             </div>
         );
+        onSaveClick = async () => {
+            if (newPass !== confirmPass) { alert('Yeni şifreler eşleşmiyor.'); return; }
+            if (newPass.length < 8) { alert('Yeni şifre en az 8 karakter olmalıdır.'); return; }
+            try {
+                const authInstance = getAuth();
+                const user = authInstance.currentUser;
+                const credential = EmailAuthProvider.credential(user.email, currentPass);
+                await reauthenticateWithCredential(user, credential);
+                await updatePassword(user, newPass);
+                alert('Şifreniz başarıyla değiştirildi.');
+                onClose();
+            } catch (error) {
+                alert('Şifre değiştirme hatası: ' + error.message);
+            }
+        };
     } else if (type === 'two_factor') {
         content = (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>

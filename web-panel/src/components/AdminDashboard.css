@@ -9,13 +9,16 @@
 
 .admin-sidebar {
     width: 260px;
+    min-width: 260px;
+    max-width: 260px;
     background-color: #1e293b;
     color: white;
     display: flex;
     flex-direction: column;
-    padding: 24px 0;
+    padding: 24px 0 16px 0;
     box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
     z-index: 10;
+    overflow: hidden;
 }
 
 .admin-brand {
