@@ -12,37 +12,32 @@ Sistem bağımsız olarak çalışan 3 ana klasörden oluşmaktadır:
 2. **`web-panel/` (React.js & Vite):** Yönetici ve Akademisyen Paneli. Akademisyenler bu panelden canlı, her 5 saniyede bir şifrelenerek yenilenen QR kodlu yoklama oturumları başlatabilir. Ayrıca anlık bildirim (FCM) göderebilirler.
 3. **`mobile-app/` (Flutter):** Öğrenci mobil uygulaması. Cihazın kimliğini (Device_ID) okuyarak sahteciliği önler, kamerasıyla tahtadaki dinamik QR kodu tarayıp anında yoklamayı sisteme işler.
 
-## Sistemi Çalıştırmak İçin Adımlar
+## 🚀 Arkadaşlar / Katılımcılar İçin Hızlı Kurulum Rehberi
 
-Projeyi test etmek için bu 3 bileşenin kendi içinde çalıştırılması gerekir.
+Projeyi GitHub'dan klonlayan bir arkadaşınızın projeyi çalıştırabilmesi için kendi Firebase projesini oluşturması ve gerekli anahtarları yerleştirmesi gerekmektedir. Güvenlik nedeniyle bu anahtarlar repoda paylaşılmaz.
 
-### 1. Arka Uç (Backend) API'si
-Bu klasör, uygulamanın çalışması için **zorunludur**. Sistemin şifreleme, doğrulama, Device ID ve oturum mantığı buradadır.
-```bash
-cd backend
-npm install
-node server.js
-```
-*API Varsayılan olarak `http://localhost:5000` portunda çalışacaktır.*
+### 1. Firebase Projesi Oluşturma
+- [Firebase Console](https://console.firebase.google.com/) üzerinden yeni bir proje oluşturun.
+- **Authentication:** E-posta/Şifre giriş yöntemini aktif edin.
+- **Firestore Database:** Veritabanını "Test modunda" başlatın.
 
-### 2. Akademisyen Web Paneli
-Firebase ile yetkilendirmesi sağlanmış React tabanlı kullanıcı arayüzü:
-```bash
-cd web-panel
-npm install
-npm run dev
-```
-*Tarayıcınız size genelde `http://localhost:5173` adresi üzerinden bir çıktı verecektir.*
-**Giriş:** Firebase Console'unuzdan (`Authentication`) açtığınız bir e-mail ve parola ile akademisyen olarak panele girebilirsiniz.
+### 2. Gerekli Dosyaların Yerleştirilmesi
 
-### 3. Öğrenci Mobil Uygulaması (Flutter)
-Öğrenci uygulamasını, bir Android Emulator, iOS Simulator ya da direk kendi fiziksel cihazınıza kablo bağlayarak kurabilirsiniz.
-```bash
-cd mobile-app
-flutter pub get
-flutter run
-```
-> **Not:** Emülatör üzerinde çalışırken localhost yönlendirmeleri için `/lib/main.dart` içerisindeki istek URL'leri `http://10.0.2.2:5000` (Android emulator standart makine ip'si) kullanacak şekilde ayarlanmıştır. Fiziki cihazdan WiFi üzerinden test yapmak isterseniz, `localhost` yerine masaüstü bilgisayarınızın `IPv4` adresini yazmanız gerekir (örn: `192.168.1.150:5000`).
+#### A. Arka Uç (Backend)
+- `backend/` klasörü içinde yeni bir dosya oluşturun ve adını `serviceAccountKey.json` yapın.
+- Firebase Console -> Proje Ayarları -> Hizmet Hesapları -> **Yeni Özel Anahtar Oluştur** diyerek indirdiğiniz JSON içeriğini bu dosyaya yapıştırın.
+- `.env.example` dosyasını `.env` olarak kopyalayın.
+
+#### B. Akademisyen Web Paneli
+- `web-panel/src/firebase.js` dosyasını açın.
+- Firebase Console -> Proje Ayarları -> Uygulamalarınız -> **Web Uygulaması** (</>) ekleyerek aldığınız `firebaseConfig` bilgilerini bu dosyadakiyle değiştirin.
+
+#### C. Öğrenci Mobil Uygulaması (Flutter)
+- **Android:** Firebase Console -> Uygulama Ekle -> **Android** yolunu izleyin. `google-services.json` dosyasını indirin ve `mobile-app/android/app/` klasörüne yapıştırın.
+- **iOS:** Firebase Console -> Uygulama Ekle -> **iOS** yolunu izleyin. `GoogleService-Info.plist` dosyasını indirin ve `mobile-app/ios/Runner/` klasörüne yapıştırın.
+
+### 3. Çalıştırma
+Her klasör içinde (backend, web-panel, mobile-app) `npm install` veya `flutter pub get` yaptıktan sonra projeyi başlatabilirsiniz. Detaylı komutlar yukarıdaki bölümlerde mevcuttur.
 
 ## Güvenlik Altyapısı (Gerçeklenenler)
 - **Device ID Bağlantısı:** API içerisinde `register_device` rotası mevcuttur ve `/scan` rotası üzerinde öğrenci cihaz doğrulaması arar (başkasının yerine yoklama verme problemini çözer).
