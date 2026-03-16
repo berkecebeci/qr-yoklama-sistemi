@@ -36,8 +36,17 @@ Projeyi GitHub'dan klonlayan bir arkadaşınızın projeyi çalıştırabilmesi 
 - **Android:** Firebase Console -> Uygulama Ekle -> **Android** yolunu izleyin. `google-services.json` dosyasını indirin ve `mobile-app/android/app/` klasörüne yapıştırın.
 - **iOS:** Firebase Console -> Uygulama Ekle -> **iOS** yolunu izleyin. `GoogleService-Info.plist` dosyasını indirin ve `mobile-app/ios/Runner/` klasörüne yapıştırın.
 
-### 3. Çalıştırma
-Her klasör içinde (backend, web-panel, mobile-app) `npm install` veya `flutter pub get` yaptıktan sonra projeyi başlatabilirsiniz. Detaylı komutlar yukarıdaki bölümlerde mevcuttur.
+### 3. Veritabanını Doldurma (Seeding)
+Projenin çalışması için veritabanında kullanıcı ve ders verilerinin olması gerekir. Bunun için `backend/` klasörü içinde şu komutları sırasıyla çalıştırın:
+```bash
+node seed.js
+node create_auth_users.js
+```
+*Bu komutlar Firebase'e test kullanıcılarını ve derslerini ekleyecektir.*
+
+### 4. Bağlantı Sorunları ve Portlar
+- **Mobil Bağlantı:** Eğer mobil uygulamayı emülatör yerine gerçek bir cihazda test edecekseniz, `mobile-app/lib/main.dart` içindeki `localhost` veya `10.0.2.2` adreslerini bilgisayarınızın yerel IP adresiyle (örn: `192.168.1.50`) değiştirmeniz gerekir.
+- **Backend Erişimi:** Sunucu varsayılan olarak `127.0.0.1` üzerinde çalışır. Emülatör bağlantı sorunları yaşarsa bunu `0.0.0.0` yapabilirsiniz.
 
 ## Güvenlik Altyapısı (Gerçeklenenler)
 - **Device ID Bağlantısı:** API içerisinde `register_device` rotası mevcuttur ve `/scan` rotası üzerinde öğrenci cihaz doğrulaması arar (başkasının yerine yoklama verme problemini çözer).
