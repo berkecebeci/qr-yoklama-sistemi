@@ -149,6 +149,71 @@ router.get('/:session_id/live', async (req, res) => {
     }
 });
 
+// Geçmiş yoklama detayı: hangi öğrenci var, hangi yok
+router.get('/:session_id/detail', async (req, res) => {
+    const sessionId = req.params.session_id;
+    try {
+        // Oturum bilgisini al
+        const sessionRef = doc(db, "Sessions", sessionId);
+        const sessionSnap = await getDoc(sessionRef);
+
+        if (!sessionSnap.exists()) {
+            return res.status(404).json({ status: "NOK", message: "Oturum bulunamadı" });
+        }
+
+        // Katılan öğrencileri al
+        const attQ = query(collection(db, "AttendanceLogs"), where("session_id", "==", sessionId));
+        const attSnap = await getDocs(attQ);
+        const attendedMap = {};
+        attSnap.docs.forEach(d => {
+            const data = d.data();
+            attendedMap[data.student_id] = {
+                student_id: data.student_id,
+                student_name: data.student_name,
+                timestamp: data.timestamp
+            };
+        });
+
+        // Tüm öğrencileri al
+        const usersSnap = await getDocs(collection(db, "Users"));
+        const allStudents = usersSnap.docs
+            .map(d => d.data())
+            .filter(u => u.role === 'student');
+
+        const present = [];
+        const absent = [];
+
+        allStudents.forEach(stu => {
+            if (attendedMap[stu.user_id]) {
+                present.push({
+                    student_id: stu.user_id,
+                    student_name: stu.name,
+                    timestamp: attendedMap[stu.user_id].timestamp
+                });
+            } else {
+                absent.push({
+                    student_id: stu.user_id,
+                    student_name: stu.name
+                });
+            }
+        });
+
+        return res.json({
+            status: "OK",
+            data: {
+                present,
+                absent,
+                total_students: allStudents.length,
+                present_count: present.length,
+                absent_count: absent.length
+            }
+        });
+    } catch (error) {
+        console.error("Session Detail Error:", error);
+        return res.status(500).json({ status: "NOK", message: "Hata" });
+    }
+});
+
 // Oturumu Sonlandırma
 router.post('/:session_id/close', async (req, res) => {
     const sessionId = req.params.session_id;

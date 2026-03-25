@@ -287,6 +287,9 @@ const CourseControlCard = ({ code, name, meta, onStart }) => {
     const [pastSessions, setPastSessions] = useState(null);
     const [loadingPast, setLoadingPast] = useState(false);
     const [visibleCount, setVisibleCount] = useState(5);
+    const [expandedSession, setExpandedSession] = useState(null);
+    const [sessionDetail, setSessionDetail] = useState(null);
+    const [loadingDetail, setLoadingDetail] = useState(false);
 
     const handleSendAnnouncement = async () => {
         if (!announcement) return;
@@ -304,6 +307,26 @@ const CourseControlCard = ({ code, name, meta, onStart }) => {
             }
         } catch (err) {
             alert("Duyuru gönderilirken bir hata oluştu.");
+        }
+    };
+
+    const toggleSessionDetail = async (sessionId) => {
+        if (expandedSession === sessionId) {
+            setExpandedSession(null);
+            setSessionDetail(null);
+            return;
+        }
+        setExpandedSession(sessionId);
+        setLoadingDetail(true);
+        try {
+            const res = await axios.get(`http://localhost:5000/api/session/${sessionId}/detail`);
+            if (res.data.status === 'OK') {
+                setSessionDetail(res.data.data);
+            }
+        } catch {
+            alert("Yoklama detayları okunamadı.");
+        } finally {
+            setLoadingDetail(false);
         }
     };
 
@@ -339,8 +362,10 @@ const CourseControlCard = ({ code, name, meta, onStart }) => {
                 <button
                     onClick={async () => {
                         if (pastSessions) {
-                            setPastSessions(null); // toggle off
+                            setPastSessions(null);
                             setVisibleCount(5);
+                            setExpandedSession(null);
+                            setSessionDetail(null);
                             return;
                         }
                         setLoadingPast(true);
@@ -365,26 +390,78 @@ const CourseControlCard = ({ code, name, meta, onStart }) => {
                     {pastSessions.length === 0 ? <p style={{ fontSize: '13px', color: '#64748B', margin: 0 }}>Bu derse ait geçmiş yoklama kaydı bulunamadı.</p> : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                             {pastSessions.slice(0, visibleCount).map(sess => (
-                                <div key={sess.session_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'white', padding: '10px', borderRadius: '6px', border: '1px solid #E2E8F0', fontSize: '13px' }}>
-                                    <div>
-                                        <div style={{ fontWeight: '500', color: '#333', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            {new Date(sess.created_at).toLocaleString('tr-TR')}
-                                            {sess.daily_total > 1 && (
-                                                <span style={{
-                                                    backgroundColor: '#DBEAFE',
-                                                    color: '#1D4ED8',
-                                                    padding: '2px 8px',
-                                                    borderRadius: '12px',
-                                                    fontSize: '11px',
-                                                    fontWeight: '600'
-                                                }}>
-                                                    {sess.session_number}/{sess.daily_total}. yoklama
+                                <div key={sess.session_id}>
+                                    <div
+                                        onClick={() => toggleSessionDetail(sess.session_id)}
+                                        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: expandedSession === sess.session_id ? '#EFF6FF' : 'white', padding: '10px', borderRadius: '6px', border: `1px solid ${expandedSession === sess.session_id ? '#3B82F6' : '#E2E8F0'}`, fontSize: '13px', cursor: 'pointer', transition: 'all 0.2s' }}>
+                                        <div>
+                                            <div style={{ fontWeight: '500', color: '#333', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                {new Date(sess.created_at).toLocaleString('tr-TR')}
+                                                {sess.daily_total > 1 && (
+                                                    <span style={{
+                                                        backgroundColor: '#DBEAFE',
+                                                        color: '#1D4ED8',
+                                                        padding: '2px 8px',
+                                                        borderRadius: '12px',
+                                                        fontSize: '11px',
+                                                        fontWeight: '600'
+                                                    }}>
+                                                        {sess.session_number}/{sess.daily_total}. yoklama
+                                                    </span>
+                                                )}
+                                                <span style={{ fontSize: '11px', color: '#94A3B8' }}>
+                                                    {expandedSession === sess.session_id ? '▲ Gizle' : '▼ Detay'}
                                                 </span>
-                                            )}
+                                            </div>
+                                            <div style={{ color: '#64748B', fontSize: '11px' }}>ID: {sess.session_id.substring(0, 12)}...</div>
                                         </div>
-                                        <div style={{ color: '#64748B', fontSize: '11px' }}>ID: {sess.session_id.substring(0, 12)}...</div>
+                                        <div style={{ fontWeight: '600', color: '#10B981' }}>{sess.attendee_count} Katılımcı</div>
                                     </div>
-                                    <div style={{ fontWeight: '600', color: '#10B981' }}>{sess.attendee_count} Katılımcı</div>
+
+                                    {/* Detay Paneli */}
+                                    {expandedSession === sess.session_id && (
+                                        <div style={{ marginTop: '4px', padding: '12px', backgroundColor: 'white', borderRadius: '6px', border: '1px solid #E2E8F0', fontSize: '12px' }}>
+                                            {loadingDetail ? (
+                                                <div style={{ textAlign: 'center', color: '#64748B', padding: '12px' }}>Yükleniyor...</div>
+                                            ) : sessionDetail ? (
+                                                <div>
+                                                    <div style={{ display: 'flex', gap: '16px', marginBottom: '12px' }}>
+                                                        <span style={{ fontWeight: '600', color: '#10B981' }}>✓ Katılan: {sessionDetail.present_count}</span>
+                                                        <span style={{ fontWeight: '600', color: '#EF4444' }}>✗ Katılmayan: {sessionDetail.absent_count}</span>
+                                                        <span style={{ color: '#64748B' }}>Toplam: {sessionDetail.total_students}</span>
+                                                    </div>
+
+                                                    {/* Katılanlar */}
+                                                    {sessionDetail.present.length > 0 && (
+                                                        <div style={{ marginBottom: '8px' }}>
+                                                            <div style={{ fontWeight: '600', color: '#10B981', marginBottom: '4px', fontSize: '12px' }}>✓ Katılan Öğrenciler</div>
+                                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                                                                {sessionDetail.present.map(s => (
+                                                                    <span key={s.student_id} style={{ backgroundColor: '#D1FAE5', color: '#065F46', padding: '3px 8px', borderRadius: '4px', fontSize: '11px' }}>
+                                                                        {s.student_name} ({s.student_id})
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Katılmayanlar */}
+                                                    {sessionDetail.absent.length > 0 && (
+                                                        <div>
+                                                            <div style={{ fontWeight: '600', color: '#EF4444', marginBottom: '4px', fontSize: '12px' }}>✗ Katılmayan Öğrenciler</div>
+                                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                                                                {sessionDetail.absent.map(s => (
+                                                                    <span key={s.student_id} style={{ backgroundColor: '#FEE2E2', color: '#991B1B', padding: '3px 8px', borderRadius: '4px', fontSize: '11px' }}>
+                                                                        {s.student_name} ({s.student_id})
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ) : null}
+                                        </div>
+                                    )}
                                 </div>
                             ))}
                             {pastSessions.length > visibleCount && (
