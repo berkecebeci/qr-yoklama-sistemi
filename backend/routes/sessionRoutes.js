@@ -11,13 +11,28 @@ router.post('/start', async (req, res) => {
     const expiresAt = new Date(Date.now() + duration_minutes * 60000);
     const initialQrContent = "QR_PAYLOAD_" + uuidv4();
 
+    // Bugünün tarihini al (sadece tarih, saat olmadan)
+    const today = new Date();
+    const sessionDate = today.toISOString().split('T')[0]; // "YYYY-MM-DD"
+
     try {
+        // Aynı gün aynı ders için kaç yoklama açıldığını bul
+        const todaySessionsQ = query(
+            collection(db, "Sessions"),
+            where("course_code", "==", course_code),
+            where("session_date", "==", sessionDate)
+        );
+        const todaySessionsSnap = await getDocs(todaySessionsQ);
+        const sessionNumber = todaySessionsSnap.size + 1;
+
         await setDoc(doc(db, "Sessions", sessionId), {
             course_code,
             expires_at: expiresAt.toISOString(),
             current_qr_token: initialQrContent,
             status: "active",
-            created_at: new Date().toISOString()
+            created_at: new Date().toISOString(),
+            session_date: sessionDate,
+            session_number: sessionNumber
         });
 
         return res.json({
@@ -26,7 +41,9 @@ router.post('/start', async (req, res) => {
             data: {
                 session_id: sessionId,
                 qr_content: initialQrContent,
-                expires_at: expiresAt
+                expires_at: expiresAt,
+                session_number: sessionNumber,
+                session_date: sessionDate
             }
         });
     } catch (error) {
@@ -59,12 +76,28 @@ router.get('/course/:courseCode', async (req, res) => {
             pastSessions.push({
                 session_id: sessionDoc.id,
                 created_at: sessionData.created_at,
-                attendee_count: attendanceSnap.size
+                attendee_count: attendanceSnap.size,
+                session_number: sessionData.session_number || 1,
+                session_date: sessionData.session_date || (sessionData.created_at ? sessionData.created_at.split('T')[0] : '')
             });
         }
 
         // Sort by newest first
         pastSessions.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+        // Her gün için o gündeki toplam yoklama sayısını hesapla
+        const dailyCounts = {};
+        pastSessions.forEach(s => {
+            if (s.session_date) {
+                dailyCounts[s.session_date] = (dailyCounts[s.session_date] || 0) + 1;
+            }
+        });
+
+        // Her oturuma o gündeki toplam yoklama sayısını ekle
+        pastSessions = pastSessions.map(s => ({
+            ...s,
+            daily_total: dailyCounts[s.session_date] || 1
+        }));
 
         return res.json({ status: "OK", data: pastSessions });
     } catch (error) {

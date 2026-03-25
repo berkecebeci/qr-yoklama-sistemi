@@ -15,8 +15,8 @@ router.get('/:student_id/dashboard', async (req, res) => {
             return {
                 code: data.code,
                 title: data.name,
-                instructor: "Öğretim Üyesi", // Without a join to Users, use generic title or leave blank
-                classroom: "Fakülte" // Generic placeholder until classroom fields are added to DB
+                instructor: "Öğretim Üyesi",
+                classroom: "Fakülte"
             };
         });
 
@@ -29,7 +29,24 @@ router.get('/:student_id/dashboard', async (req, res) => {
                 where("course_code", "==", course.code)
             );
             const sessionsSnap = await getDocs(sessionsQ);
-            const totalSessions = sessionsSnap.size;
+
+            // Tüm oturumları al
+            const allSessions = sessionsSnap.docs.map(d => ({
+                id: d.id,
+                ...d.data()
+            }));
+
+            // Günlük gruplama: her gün için kaç yoklama açıldığını hesapla
+            const dailyGroups = {};
+            allSessions.forEach(ses => {
+                const dateKey = ses.session_date || (ses.created_at ? ses.created_at.split('T')[0] : 'unknown');
+                if (!dailyGroups[dateKey]) {
+                    dailyGroups[dateKey] = [];
+                }
+                dailyGroups[dateKey].push(ses.id);
+            });
+
+            const totalDays = Object.keys(dailyGroups).length;
 
             // Find sessions this student attended for this course
             const attendanceQ = query(
@@ -38,19 +55,38 @@ router.get('/:student_id/dashboard', async (req, res) => {
                 where("student_id", "==", studentId)
             );
             const attendanceSnap = await getDocs(attendanceQ);
-            const attendedSessions = attendanceSnap.size;
+            const attendedSessionIds = new Set(attendanceSnap.docs.map(d => d.data().session_id));
 
-            // Basic calculation
+            // Ağırlıklı devam hesaplama
+            // Her gün için: katılınan yoklama sayısı / o gündeki toplam yoklama sayısı
+            let weightedAttendance = 0;
+            const dailyBreakdown = [];
+
+            Object.entries(dailyGroups).forEach(([date, sessionIds]) => {
+                const dailyTotal = sessionIds.length;
+                const attendedInDay = sessionIds.filter(sid => attendedSessionIds.has(sid)).length;
+                const dayWeight = attendedInDay / dailyTotal; // 0 ile 1 arası
+                weightedAttendance += dayWeight;
+
+                dailyBreakdown.push({
+                    date,
+                    total_sessions: dailyTotal,
+                    attended: attendedInDay,
+                    weight: dayWeight
+                });
+            });
+
+            // Devamsızlık yüzdesi: toplam ağırlıklı devam / toplam gün sayısı * 100
+            const percentage = totalDays === 0 ? 100 : Math.round((weightedAttendance / totalDays) * 100);
+            const weightedAbsent = totalDays - weightedAttendance;
+
             const absenceLimit = 5;
-            const absentCount = totalSessions - attendedSessions;
-            const percentage = totalSessions === 0 ? 100 : Math.round((attendedSessions / totalSessions) * 100);
-
             let status = 'Güvenli';
             let color = 'green';
-            if (absentCount >= absenceLimit) {
+            if (weightedAbsent >= absenceLimit) {
                 status = 'Kaldı (Devamsızlık)';
                 color = 'red';
-            } else if (absentCount >= absenceLimit - 1) {
+            } else if (weightedAbsent >= absenceLimit - 1) {
                 status = 'Sınırda (Devamsızlık)';
                 color = 'orange';
             }
@@ -58,11 +94,14 @@ router.get('/:student_id/dashboard', async (req, res) => {
             courseSummaries.push({
                 ...course,
                 attendance_percentage: percentage,
-                total_absences: absentCount,
+                total_absences: parseFloat(weightedAbsent.toFixed(1)),
                 absence_limit: absenceLimit,
                 status: status,
                 color: color,
-                next_class_time: "Pzt 09:00" // Simulated upcoming
+                total_days: totalDays,
+                total_sessions: allSessions.length,
+                daily_breakdown: dailyBreakdown,
+                next_class_time: "Pzt 09:00"
             });
         }
 

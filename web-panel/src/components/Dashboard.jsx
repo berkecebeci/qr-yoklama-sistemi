@@ -367,7 +367,21 @@ const CourseControlCard = ({ code, name, meta, onStart }) => {
                             {pastSessions.slice(0, visibleCount).map(sess => (
                                 <div key={sess.session_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'white', padding: '10px', borderRadius: '6px', border: '1px solid #E2E8F0', fontSize: '13px' }}>
                                     <div>
-                                        <div style={{ fontWeight: '500', color: '#333' }}>{new Date(sess.created_at).toLocaleString('tr-TR')}</div>
+                                        <div style={{ fontWeight: '500', color: '#333', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            {new Date(sess.created_at).toLocaleString('tr-TR')}
+                                            {sess.daily_total > 1 && (
+                                                <span style={{
+                                                    backgroundColor: '#DBEAFE',
+                                                    color: '#1D4ED8',
+                                                    padding: '2px 8px',
+                                                    borderRadius: '12px',
+                                                    fontSize: '11px',
+                                                    fontWeight: '600'
+                                                }}>
+                                                    {sess.session_number}/{sess.daily_total}. yoklama
+                                                </span>
+                                            )}
+                                        </div>
                                         <div style={{ color: '#64748B', fontSize: '11px' }}>ID: {sess.session_id.substring(0, 12)}...</div>
                                     </div>
                                     <div style={{ fontWeight: '600', color: '#10B981' }}>{sess.attendee_count} Katılımcı</div>

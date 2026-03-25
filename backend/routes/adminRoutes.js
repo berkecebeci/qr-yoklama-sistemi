@@ -100,20 +100,37 @@ router.get('/reports/:courseCode', async (req, res) => {
             return res.json({ status: "OK", data: [], message: "Bu derse ait bitmiş bir yoklama oturumu bulunmamaktadır." });
         }
 
+        // Günlük gruplama: her tarih için kaç yoklama açıldığını hesapla
+        const dailyCounts = {};
+        sessions.forEach(ses => {
+            const dateKey = ses.session_date || (ses.created_at ? ses.created_at.split('T')[0] : 'unknown');
+            dailyCounts[dateKey] = (dailyCounts[dateKey] || 0) + 1;
+        });
+
+        // Her session'a günlük sıra numarasını ata (eğer yoksa)
+        const dailyIndex = {};
+        sessions.forEach(ses => {
+            const dateKey = ses.session_date || (ses.created_at ? ses.created_at.split('T')[0] : 'unknown');
+            dailyIndex[dateKey] = (dailyIndex[dateKey] || 0) + 1;
+            ses._dailyNumber = dailyIndex[dateKey];
+            ses._dailyTotal = dailyCounts[dateKey];
+            ses._dateKey = dateKey;
+        });
+
+        const totalDays = Object.keys(dailyCounts).length;
+
         // 2. Fetch all students to build rows
         const usersSnap = await getDocs(collection(db, "Users"));
         const allStudents = usersSnap.docs.map(d => d.data()).filter(u => u.role === 'student');
 
         // 3. For each session, fetch attendance logs
-        const reportData = [];
-
         // Build a grid: mapping student ID -> { user_id, name, session1: true/false ... }
         const studentGrid = {};
         allStudents.forEach(stu => {
             studentGrid[stu.user_id] = {
                 "Öğrenci No": stu.user_id,
                 "Ad Soyad": stu.name,
-                total_attended: 0
+                _weightedAttendance: 0
             };
         });
 
@@ -125,13 +142,21 @@ router.get('/reports/:courseCode', async (req, res) => {
             // Map of student_ids who attended this specific session
             const attendedStudentIds = new Set(attSnap.docs.map(doc => doc.data().student_id));
 
-            const sessionColName = `Oturum ${sessionIndex} (${new Date(session.created_at).toLocaleDateString()})`;
+            // Sütun başlığı: aynı günde birden fazla yoklama varsa (1/3) gibi etiket ekle
+            let sessionColName;
+            if (session._dailyTotal > 1) {
+                sessionColName = `Oturum ${sessionIndex} (${new Date(session.created_at).toLocaleDateString('tr-TR')}) [${session._dailyNumber}/${session._dailyTotal}]`;
+            } else {
+                sessionColName = `Oturum ${sessionIndex} (${new Date(session.created_at).toLocaleDateString('tr-TR')})`;
+            }
+
+            const sessionWeight = 1 / session._dailyTotal;
 
             // Populate the grid for this session
             Object.values(studentGrid).forEach(stuRecord => {
                 if (attendedStudentIds.has(stuRecord["Öğrenci No"])) {
                     stuRecord[sessionColName] = "Katıldı";
-                    stuRecord.total_attended += 1;
+                    stuRecord._weightedAttendance += sessionWeight;
                 } else {
                     stuRecord[sessionColName] = "Yok";
                 }
@@ -140,15 +165,17 @@ router.get('/reports/:courseCode', async (req, res) => {
             sessionIndex++;
         }
 
-        // Finalize rows with percentage
+        // Finalize rows with weighted percentage
         const finalRows = Object.values(studentGrid).map(stu => {
-            const percentage = ((stu.total_attended / sessions.length) * 100).toFixed(0) + "%";
+            const percentage = ((stu._weightedAttendance / totalDays) * 100).toFixed(0) + "%";
 
-            // Create a clean object without the temporary counter, putting Devam Oranı at the end
-            const { total_attended, ...rest } = stu;
+            // Create a clean object without the temporary counter
+            const { _weightedAttendance, ...rest } = stu;
             return {
                 ...rest,
-                "Toplam Devam": `${total_attended} / ${sessions.length}`,
+                "Toplam Gün": totalDays,
+                "Toplam Oturum": sessions.length,
+                "Ağırlıklı Devam": `${_weightedAttendance.toFixed(1)} / ${totalDays}`,
                 "Devam Oranı": percentage
             };
         });
