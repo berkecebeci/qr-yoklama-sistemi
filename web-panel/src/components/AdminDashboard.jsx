@@ -262,7 +262,7 @@ function AdminDashboard() {
                 </nav>
                 <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     <button className="logout-btn" style={{ margin: 0, backgroundColor: '#3b82f6' }} onClick={() => { setShowPasswordModal(true); setPwdError(''); setPwdForm({ current: '', newPass: '', confirm: '' }); }}>Şifre Değiştir</button>
-                    <button className="logout-btn" style={{ margin: 0 }} onClick={() => { localStorage.removeItem('token'); window.location.href = '/'; }}>Çıkış Yap</button>
+                    <button className="logout-btn" style={{ margin: 0 }} onClick={() => { sessionStorage.clear(); window.location.href = '/'; }}>Çıkış Yap</button>
                 </div>
             </div>
 

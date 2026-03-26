@@ -23,12 +23,12 @@ const Dashboard = () => {
 
     // User Details State
     const [userName, setUserName] = useState(() => {
-        return localStorage.getItem('profile_name') || "Dr. Öğretim Üyesi";
+        return sessionStorage.getItem('profile_name') || "Dr. Öğretim Üyesi";
     });
     const [userTitle, setUserTitle] = useState(() => {
-        return localStorage.getItem('profile_title') || "Akademisyen";
+        return sessionStorage.getItem('profile_title') || "Akademisyen";
     });
-    const userId = localStorage.getItem('user_id');
+    const userId = sessionStorage.getItem('user_id');
     const [courses, setCourses] = useState([]);
     const [stats, setStats] = useState({ active_courses: 0, overall_attendance: '0%', warnings: 0 });
 
@@ -71,7 +71,11 @@ const Dashboard = () => {
     };
 
     const handleLogout = () => {
-        localStorage.removeItem('token');
+        sessionStorage.removeItem('token');
+        sessionStorage.removeItem('role');
+        sessionStorage.removeItem('user_id');
+        sessionStorage.removeItem('profile_name');
+        sessionStorage.removeItem('profile_title');
         navigate('/');
     };
 
@@ -131,8 +135,8 @@ const Dashboard = () => {
                             if (res.data.status === 'OK') {
                                 setUserName(newName);
                                 setUserTitle(newTitle);
-                                localStorage.setItem('profile_name', newName);
-                                localStorage.setItem('profile_title', newTitle);
+                                sessionStorage.setItem('profile_name', newName);
+                                sessionStorage.setItem('profile_title', newTitle);
                                 alert("Profil güncellendi.");
                             } else {
                                 alert("Profil güncellenemedi: " + res.data.message);

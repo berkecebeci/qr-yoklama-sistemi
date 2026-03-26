@@ -5,8 +5,8 @@ import { auth, db } from '../firebase';
 import { doc, getDoc } from 'firebase/firestore';
 
 const Login = () => {
-    const [email, setEmail] = useState('elif.yilmaz@akademik.edu.tr');
-    const [password, setPassword] = useState('GucluSifre123!');
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
     const [isForgotPassword, setIsForgotPassword] = useState(false);
     const [resetMessage, setResetMessage] = useState('');
     const navigate = useNavigate();
@@ -33,11 +33,11 @@ const Login = () => {
             const data = await res.json();
 
             if (data.status === 'OK') {
-                localStorage.setItem('token', data.data.access_token);
-                localStorage.setItem('role', data.data.role);
-                localStorage.setItem('user_id', data.data.user_id);
-                localStorage.setItem('profile_name', data.data.name || 'Öğretmen');
-                localStorage.setItem('profile_title', data.data.role === 'academician' ? 'Akademisyen' : 'Yönetici');
+                sessionStorage.setItem('token', data.data.access_token);
+                sessionStorage.setItem('role', data.data.role);
+                sessionStorage.setItem('user_id', data.data.user_id);
+                sessionStorage.setItem('profile_name', data.data.name || 'Öğretmen');
+                sessionStorage.setItem('profile_title', data.data.role === 'academician' ? 'Akademisyen' : 'Yönetici');
 
                 if (data.data.role === 'admin') {
                     navigate('/admin');

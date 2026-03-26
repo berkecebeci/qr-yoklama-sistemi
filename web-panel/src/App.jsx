@@ -8,7 +8,7 @@ import './App.css';
 
 // FR-28: Route Guard — ziyaretçiler yalnızca giriş sayfasını görebilir
 const ProtectedRoute = ({ children }) => {
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
   if (!token) {
     return <Navigate to="/" replace />;
   }
