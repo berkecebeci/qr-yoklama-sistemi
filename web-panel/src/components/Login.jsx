@@ -5,8 +5,8 @@ import { auth, db } from '../firebase';
 import { doc, getDoc } from 'firebase/firestore';
 
 const Login = () => {
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
+    const [email, setEmail] = useState('elif.yilmaz@akademik.edu.tr');
+    const [password, setPassword] = useState('GucluSifre123!');
     const [isForgotPassword, setIsForgotPassword] = useState(false);
     const [resetMessage, setResetMessage] = useState('');
     const navigate = useNavigate();
